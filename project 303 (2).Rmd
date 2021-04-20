@@ -1,0 +1,313 @@
+---
+title: "Report title"
+subtitle: "Subtitle"
+author: "Report prepared for Black Saber Software by White Knight Consulting Company"
+date: 2021-04-21
+lang: "en"
+output:
+  pdf_document:
+    template: report.tex
+    toc: true
+    toc_depth: 2
+titlepage: true
+titlepage-color: "92B2BE"
+titlepage-text-color: "FFFFFF"
+titlepage-rule-color: "FFFFFF"
+titlepage-rule-height: 2
+---
+
+```{r, message = FALSE, echo=FALSE, warning=FALSE}
+library(tidyverse)
+# this should supress all code and messages
+knitr::opts_chunk$set(include=FALSE)
+```
+
+# General comments (you can delete this section)
+
+*You can delete this section, and if you want to check what it said, just open a template from the package again. You don't have to use this particular template, but you DO need to write you report in RMarkdown and include a cover page.*
+
+*The cover page must have:*
+
+-   *A title and subtitle*
+-   *"Report prepared for Black Saber Software by" your company name*
+-   *Date (assessment submission date is fine)*
+
+*You can change the colour of this cover to any colour you would like by replacing 6C3082 in the YAML above (line 11) to another hex code. You could use this tool to help you:* <https://htmlcolorcodes.com/color-picker/>
+
+\newpage
+
+# Executive summary
+
+*Guidelines for the executive summary:*
+
+-   *No more than two pages*
+-   *Language is appropriate for a non-technical audience*
+-   *Bullet points are used where appropriate*
+-   *A small number of key visualizations and/or tables are included*
+-   *All three research questions are addressed*
+
+Are the hiring, promotion and salary processes all fair, and based on talent and value to the company? 1. Does gender predict salary and influence fairnes? 2. Is there a relationship between gender and promotion and influence fairnes? 3. Does gender play an important role in hiring process and influence fairnes?
+
+gender -- salary gender -- leadership\_for\_level gender -- hiring
+
+\newpage
+
+# Technical report
+
+*This part of the report is much more comprehensive than the executive summary. The audience is statistics/data-minded people, but you should NOT include code or unformatted R output here.*
+
+## Introduction
+
+*Provide a brief introduction to your report and outline what the report will cover. This section is valuable for setting scope and expectations.*
+
+### Research questions
+
+*Use bullet points to to describe the research questions you are going to address. Write in full sentences.*
+
+## Informative title for section addressing a research question
+
+*For each research question, you will want to briefly describe any data manipulation, show some exploratory plots/summary tables, report on any methods you use (i.e. models you fit) and the conclusions you draw from these*
+
+```{r}
+# This chunk provides an example of some things you can do with RMarkdown to make your report creation process easier
+
+# read in the data
+black_saber_current_employees <- read_csv("black-saber-current-employees.csv")
+
+# create a visualisation
+my_plot <- black_saber_current_employees %>% 
+  ggplot(aes(x = productivity)) +
+  geom_histogram(colour = "grey", fill = "#6C3082") +
+  theme_minimal() +
+  labs(title = "Look! A title. But do you want a title or a caption for your report?", x = "This is a changed x label")
+
+# save your plot in your images folder, you can specify the height and width, too
+# saving this means you can add the image to your exectuve summary without having to run or rerun the code, if you wish
+ggsave("images/example.png", width = 7, height = 4)
+
+# norice how the image is included with the ![](file/path.png) below
+```
+
+![](images/example.png)
+
+## Informative title for section addressing a research question
+
+## Informative title for section addressing a research question
+
+```{r, include = FALSE}
+library(tidyverse)
+library(lme4)
+library(readr)
+black_saber_current_employees <- read_csv("Untitled/data/black-saber-current-employees.csv")
+View(black_saber_current_employees)
+```
+
+### If gender affects hiring
+
+```{r load data}
+library(kableExtra)
+setwd("~/Desktop/Yang Zhu/UT Assignment/hm_song_sta303_final_project")
+phase1 <- read_csv("phase1-new-grad-applicants-2020.csv")
+phase2 <- read_csv("phase2-new-grad-applicants-2020.csv")
+phase3 <- read_csv("phase3-new-grad-applicants-2020.csv")
+final_hire <- read_csv("final-hires-newgrad_2020.csv")
+```
+
+#### Phase 1 to Phase 2
+
+```{r one to two}
+phase2_candidate <- phase2$applicant_id
+phase1_dt <- phase1 %>% 
+  mutate(phase2 = ifelse(applicant_id %in% phase2_candidate, 1, 0),
+         team_applied_for = as.factor(team_applied_for),
+         cover_letter = as.factor(cover_letter),
+         cv = as.factor(cv),
+         gender = as.factor(gender)) %>% 
+  mutate(phase2 = as.factor(phase2))
+
+# gender proportion
+phase1_dt %>% 
+  group_by(phase2) %>% 
+  summarise(p_male = sum(gender == "Man")/n(),
+            p_female = sum(gender == "Woman")/n(),
+            p_unknown = sum(gender == "Prefer not to say")/n(),
+            total_number = n())
+
+# GPA distribution (played a big role)
+# Applicant with higher GPA is more likelt to be forwarded to next round
+phase1_dt %>% 
+  ggplot(aes(x = gpa)) +
+  geom_histogram() +
+  facet_grid(~phase2)
+
+# Men and women have a similar range and distribution
+phase1_dt %>% 
+  ggplot(aes(x = gpa)) +
+  geom_histogram() +
+  facet_grid(~gender)
+
+phase1_dt %>% 
+  group_by(phase2, gender) %>%
+  summarise(mean_gpa = mean(gpa, na.rm = T))
+
+# We didn't include interaction effect since there might be three-way or four-way interaction effect, which is hard # to be captured by the model.
+lr1_full <- glm(phase2 ~ team_applied_for + cover_letter + cv + gpa + gender + extracurriculars + work_experience,
+                data = phase1_dt, family = binomial(link = "logit")) 
+summary_table1 <- summary(lr1_full)$coefficients
+kableExtra::kable(summary_table1, format = "simple", caption = "Coefficients Table (Phase1 to Phase2)")
+
+phase1 %>% filter(cv == 1, cover_letter == 1) %>% count()
+# There is not very meaningful to investigate model result for phase 1 data, since in this phase it basically just removed the applications without cover letter and cv
+# We can tell the automatic filter of application does not introduce any gender unfairness
+```
+
+#### Phase 2 to Phase 3
+
+```{r two to three}
+phase3_candidate <- phase3$applicant_id
+phase2_dt <- phase2 %>% 
+  # exclude unknown gender
+  filter(gender %in% c("Man", "Woman")) %>% 
+  mutate(phase3 = ifelse(applicant_id %in% phase3_candidate, 1, 0),
+         team_applied_for = as.factor(team_applied_for),
+         cover_letter = as.factor(cover_letter),
+         cv = as.factor(cv),
+         gender = as.factor(gender), 
+         total_score = technical_skills + writing_skills + leadership_presence + speaking_skills) %>% 
+  mutate(phase3 = as.factor(phase3))
+
+# Proportion of candidate group by gender (More Male has been selected in this round)
+phase2_dt %>% 
+  group_by(phase3) %>% 
+  summarise(p_male = sum(gender == "Man")/n(),
+            p_female = sum(gender == "Woman")/n(),
+            total_number = n())
+
+# Distribution of assessment score group by outcome and gender (Does male perform better than female?)
+phase2_dt %>% 
+  ggplot(aes(x = gender, y = technical_skills)) +
+  geom_boxplot() +
+  facet_grid(~phase3)
+
+phase2_dt %>% 
+  ggplot(aes(x = gender, y = writing_skills)) +
+  geom_boxplot() +
+  facet_grid(~phase3)
+
+phase2_dt %>% 
+  ggplot(aes(x = gender, y = leadership_presence)) +
+  geom_boxplot() +
+  facet_grid(~phase3)
+
+phase2_dt %>% 
+  ggplot(aes(x = gender, y = speaking_skills)) +
+  geom_boxplot() +
+  facet_grid(~phase3)
+# It is hard to say male performs better than female from the plots. For technical skills, male tends to have more 
+# variation than female, but we will assume the technical skills are assessed objectively. For speaking skills, female gets lower score than male if they are not selected.
+
+# There are two things we need to think of. First, whether the scoring is biased. Second, whether the final selection is biased.
+
+## Speaking skills
+speaking_model_full <- lm(speaking_skills ~ team_applied_for + gpa + gender + extracurriculars + work_experience + writing_skills + leadership_presence + technical_skills + team_applied_for:gender + gpa:gender + extracurriculars:gender + work_experience:gender, data = phase2_dt)
+summary(speaking_model_full)
+# seems speaking skills are only affected by gender
+# In general, women has lower speaking scores. And speaking scores are not affected by other scores
+
+## Technical skills
+tech_model_full <- lm(technical_skills ~ team_applied_for + gpa + gender + extracurriculars + work_experience + writing_skills + leadership_presence + speaking_skills + team_applied_for:gender + gpa:gender + extracurriculars:gender + work_experience:gender, data = phase2_dt)
+summary(tech_model_full)
+# We can see tech score is only affected by GPA, which makes sense
+
+## Writing skills
+write_model_full <- lm(writing_skills ~ team_applied_for + gpa + gender + extracurriculars + work_experience + technical_skills + leadership_presence + speaking_skills + team_applied_for:gender + gpa:gender + extracurriculars:gender + work_experience:gender, data = phase2_dt)
+summary(write_model_full)
+# Same as tech socre, we can see tech score is only affected by GPA
+
+## Leadership skills
+lead_model_full <- lm(leadership_presence ~ team_applied_for + gpa + gender + extracurriculars + work_experience + technical_skills + writing_skills + speaking_skills + team_applied_for:gender + gpa:gender + extracurriculars:gender + work_experience:gender, data = phase2_dt)
+summary(lead_model_full)
+# This one is interesting, seems leadership score is only affected by the interaction of gender and extracurricular. Female tends to have higher score by controlling the extracurricular.
+
+# In conclusion, we suspect speaking score might be biased by the gender, since it is not a control study, no causality can be derived from the model, but only the association.
+
+### Model diagnosis (No violation)
+plot(speaking_model_full) 
+
+## Phase 3 candidate
+lr2_full <- glm(phase3 ~ team_applied_for + gpa + gender + extracurriculars + work_experience + technical_skills + writing_skills + speaking_skills + leadership_presence + team_applied_for:gender + gpa:gender + extracurriculars:gender + work_experience:gender + technical_skills:gender + writing_skills:gender + speaking_skills:gender + leadership_presence:gender,
+                data = phase2_dt, family = binomial(link = "logit")) 
+summary_table2 <- summary(lr2_full)$coefficients
+kableExtra::kable(summary_table1, format = "simple", caption = "Coefficients Table (Phase1 to Phase2)")
+### We can tell from the coefficient table that all four skills play significant roles in hiring. However, there is a slightly disadvantage on women. For the women with the same technical skills and writing skills as male, they have smaller chance to be moved to next round.
+```
+
+#### Phase 3 to Final decision
+
+```{r}
+offer_candidate <- final_hire$applicant_id
+phase3_dt <- phase2_dt %>% 
+  filter(phase3 == 1) %>% 
+  left_join(phase3, by = "applicant_id") %>% 
+  mutate(avg_interview_score = (interviewer_rating_1 + interviewer_rating_2)/2) %>% 
+  mutate(final_candidate = ifelse(applicant_id %in% offer_candidate, 1, 0))
+
+# We can tell from the data, the top 10 candidates with high average interview rating score got the offer.
+# So instead of using the binary outcome, we check if two interviewers have a biased rating by gender.
+
+phase3_dt %>% 
+  group_by(gender) %>% 
+  summarise(interview1 = mean(interviewer_rating_1),
+            interview2 = mean(interviewer_rating_2))
+# man and woman have similar score in average
+
+phase3_dt %>% 
+  ggplot(aes(x = gender, y = interviewer_rating_1)) +
+  geom_boxplot() 
+
+phase3_dt %>% 
+  ggplot(aes(x = gender, y = interviewer_rating_2)) +
+  geom_boxplot() 
+# boxplot doesn't tell too much 
+
+
+final_rating1_model_full <- lm(interviewer_rating_1 ~ gender + technical_skills + writing_skills + leadership_presence + speaking_skills + gender:technical_skills + gender:writing_skills + gender:leadership_presence + gender:speaking_skills, data = phase3_dt)
+summary(final_rating1_model_full)
+final_rating2_model_full <- lm(interviewer_rating_2 ~ gender + technical_skills + writing_skills + leadership_presence + speaking_skills + gender:technical_skills + gender:writing_skills + gender:leadership_presence + gender:speaking_skills, data = phase3_dt)
+summary(final_rating2_model_full)
+interaction.plot(phase3_dt$speaking_skills,  phase3_dt$gender, phase3_dt$interviewer_rating_1, type = "l",
+                 xlab = "speaking skills",trace.label = "gender",
+                 ylab = "interviewer 1 rating")
+interaction.plot(phase3_dt$speaking_skills,  phase3_dt$gender, phase3_dt$interviewer_rating_2, type = "l",
+                 xlab = "speaking skills",trace.label = "gender",
+                 ylab = "interviewer 2 rating")
+# To interviewer 2, The woman with higher speaking skills has lower rating. It is hard to say it is solely caused by gender since we did not include interaction effect of more variables since the sample size is small. We can learn from the R-square that rating of interviewer 1 is more deterministic with adjusted R-square 0.9896, while interviewer 2 has more randomness with adjusted R-square 0.6963.
+# There is no noticeable unfairness in the final round. The final decision is usually made based on candidates' performance and skills scores.
+```
+
+## Discussion
+
+*In this section you will summarize your findings across all the research questions and discuss the strengths and limitations of your work. It doesn't have to be long, but keep in mind that often people will just skim the intro and the discussion of a document like this, so make sure it is useful as a semi-standalone section (doesn't have to be completely standalone like the executive summary).*
+
+### Strengths and limitations
+
+\newpage
+
+# Consultant information
+
+## Consultant profiles
+
+## Code of ethical conduct
+
+The mission of the White Knight Consulting (WKC) is to provide strategic recommendation according to data analysis and statistical evidence. In order to provide reliable analysis, our statisticians must be skilled and demonstrate professional integrity. Therefore, all members in WKC agree to work under this Code of Ethical Statistical Practice as an essential condition of their accreditation.
+
+1.  All data analysis process should maintain objectivity and avoid personal or procedural bias.
+2.  Statisticians should be able to acquire and comply appropriate knowledge of relevant legislation, standards and regulation.
+3.  Statisticians should protect data privacy and avoid any information leakage.
+
+*This section should be fairly short, no more than half a page. Assume a general audience, much like your executive summary.*
+
+-   *Make at least three relevant statements about your company's approach to ethical statistical consulting. These should be appropriately in line with professional conduct advice like the (Statistical Society of Canada Code of Conduct)[<https://ssc.ca/sites/default/files/data/Members/public/Accreditation/ethics_e.pdf>] or the (Ethical Guidelines for Statistical Practice from the American Statistical Society)[<https://www.amstat.org/ASA/Your-Career/Ethical-Guidelines-for-Statistical-Practice.aspx>]. For example, "the customer is always right" ISN'T the type of thing an ethical statistical consultant would include.*
+-   *Be very careful not to just copy and paste from these other documents! Put things in your own words.*
+
+**Final advice: KNIT EARLY AND OFTEN!**
